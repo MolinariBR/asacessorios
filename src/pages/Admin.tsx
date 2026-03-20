@@ -44,6 +44,7 @@ const Admin = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: '', color: '' });
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
 
   // Local settings form
   const [settingsForm, setSettingsForm] = useState({
@@ -81,6 +82,23 @@ const Admin = () => {
     setEditingProduct(product);
     setFormData({ name: product.name, description: product.description, price: product.price.toString(), image: product.image, category: product.category, color: product.color });
     setShowProductForm(true);
+  };
+
+  const handleUploadProductImage = async (file: File) => {
+    try {
+      setUploadingProductImage(true);
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `product-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+      setFormData((prev) => ({ ...prev, image: urlData.publicUrl }));
+      toast.success('Imagem enviada com sucesso!');
+    } catch {
+      toast.error('Erro ao enviar imagem do produto');
+    } finally {
+      setUploadingProductImage(false);
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -231,8 +249,23 @@ const Admin = () => {
                       <input className={inputClass} type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} placeholder="0.00" />
                     </div>
                     <div>
-                      <label className={labelClass}>URL da Imagem</label>
-                      <input className={inputClass} value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} placeholder="https://..." />
+                      <label className={labelClass}>Imagem do Produto</label>
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-sm border border-border bg-card text-sm text-foreground hover:bg-accent transition-colors ${uploadingProductImage ? 'opacity-70 pointer-events-none' : ''}`}>
+                        <Upload size={16} />
+                        {uploadingProductImage ? 'Enviando...' : 'Escolher arquivo'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            await handleUploadProductImage(file);
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                      </label>
+                      <input className={`${inputClass} mt-2`} value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} placeholder="URL gerada automaticamente (opcional editar)" />
                       {formData.image && (
                         <img src={formData.image} alt="Preview" className="mt-2 w-16 h-16 object-cover rounded-sm border border-border" />
                       )}
