@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# AS Acessórios
 
-## Project info
+Loja virtual em React + Vite com painel administrativo em `/admin`, banco Supabase e deploy na Vercel.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS + shadcn/ui
+- Supabase (database + storage)
+- Vercel (deploy)
 
-There are several ways of editing your application.
+## Requisitos
 
-**Use Lovable**
+- Node.js 20+
+- npm 10+
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Ambiente local
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Clone o repositório:
 
-**Use your preferred IDE**
+```bash
+git clone https://github.com/MolinariBR/asacessorios.git
+cd asacessorios
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. Instale dependências:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+npm install
+```
 
-Follow these steps:
+3. Crie `.env.local`:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```env
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICA
+VITE_SITE_URL=https://asacessorios.vercel.app
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. Rode localmente:
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Scripts
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `npm run dev`: ambiente de desenvolvimento
+- `npm run build`: build de produção
+- `npm run preview`: preview local do build
+- `npm run test`: testes com Vitest
+- `npm run lint`: lint
 
-**Use GitHub Codespaces**
+## Supabase
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- As migrações SQL estão em `supabase/migrations`.
+- Guia operacional: `MIGRATION_GUIDE.md`.
+- O painel `/admin` permanece aberto (sem autenticação no app), conforme decisão do projeto.
 
-## What technologies are used for this project?
+## Deploy na Vercel
 
-This project is built with:
+1. Conecte o repositório no painel da Vercel.
+2. Configure variáveis de ambiente:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - `VITE_SITE_URL` (ex.: `https://asacessorios.vercel.app`)
+3. Faça deploy pelo branch `main`.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## SEO implementado no projeto
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Metadados principais (`title`, `description`, Open Graph e Twitter Cards).
+- Canonical por rota.
+- `robots` por rota:
+  - páginas públicas: `index,follow`
+  - rotas internas (`/admin`, `/checkout`, `/carrinho`, `/favoritos`): `noindex,nofollow`
+- `robots.txt` e `sitemap.xml` públicos.
+- Structured data (`schema.org/Store`) no `index.html`.

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { StoreHeader } from '@/components/StoreHeader';
@@ -11,6 +12,10 @@ const ProductDetail = () => {
   const { data: products = [], isLoading } = useProducts();
   const addToCart = useStore((s) => s.addToCart);
   const product = products.find((p) => p.id === id);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [id]);
 
   if (isLoading) {
     return (

@@ -12,6 +12,7 @@ import Favorites from "./pages/Favorites.tsx";
 import Novidades from "./pages/Novidades.tsx";
 import Categorias from "./pages/Categorias.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { SeoManager } from "./components/SeoManager";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <SeoManager />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/novidades" element={<Novidades />} />
