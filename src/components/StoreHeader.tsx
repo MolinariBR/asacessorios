@@ -108,10 +108,12 @@ export function StoreHeader({
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto flex items-center justify-between py-4 px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-secondary">
-            AS Acessórios
-          </h1>
+        <Link to="/" aria-label="AS Acessórios - Início" className="flex items-center">
+          <img
+            src="/icon-192.png"
+            alt="Logo AS Acessórios"
+            className="h-8 w-8 md:h-9 md:w-9 rounded-sm object-cover"
+          />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 font-body text-sm tracking-wide text-muted-foreground">

@@ -1,6 +1,5 @@
-import { Shield, RefreshCw, CreditCard, Lock } from 'lucide-react';
+import { Shield, RefreshCw, CreditCard } from 'lucide-react';
 import { InstagramIcon } from '@/components/InstagramIcon';
-import { Link } from 'react-router-dom';
 
 export function StoreFooter() {
   return (
@@ -36,6 +35,11 @@ export function StoreFooter() {
           </div>
         </div>
         <div className="border-t border-border pt-8 text-center">
+          <img
+            src="/icon-192.png"
+            alt="Logo AS Acessórios"
+            className="h-12 w-12 mx-auto mb-2 rounded-sm object-cover"
+          />
           <p className="font-display text-xl font-semibold text-secondary mb-2">AS Acessórios</p>
           <p className="text-xs text-muted-foreground font-body tracking-wide">
             © {new Date().getFullYear()} AS Acessórios. Todos os direitos reservados.
@@ -49,10 +53,6 @@ export function StoreFooter() {
             <InstagramIcon className="h-5 w-5" />
             @as.acessorios_as
           </a>
-          <Link to="/admin" className="inline-flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors font-body mt-2">
-            <Lock className="h-3 w-3" />
-            Área Administrativa
-          </Link>
         </div>
       </div>
     </footer>
