@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
 import { StoreHeader } from '@/components/StoreHeader';
 import { StoreFooter } from '@/components/StoreFooter';
 import { useProducts } from '@/hooks/use-products';
 import { useStore } from '@/lib/store';
+import { getPrimaryProductImage } from '@/lib/product-images';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { toast } from 'sonner';
 
 const ProductDetail = () => {
@@ -16,6 +17,43 @@ const ProductDetail = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [id]);
+
+  const productImages = useMemo(() => {
+    if (product?.images && product.images.length > 0) return product.images;
+    return [getPrimaryProductImage(product?.image)];
+  }, [product?.image, product?.images]);
+
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mobileCarouselApi, setMobileCarouselApi] = useState<CarouselApi>();
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [id, productImages.length]);
+
+  const clampImageIndex = (index: number) => {
+    if (productImages.length === 0) return 0;
+    return (index + productImages.length) % productImages.length;
+  };
+
+  useEffect(() => {
+    if (!mobileCarouselApi) return;
+    const onSelect = () => setSelectedImageIndex(mobileCarouselApi.selectedScrollSnap());
+    onSelect();
+    mobileCarouselApi.on('select', onSelect);
+    mobileCarouselApi.on('reInit', onSelect);
+    return () => {
+      mobileCarouselApi.off('select', onSelect);
+      mobileCarouselApi.off('reInit', onSelect);
+    };
+  }, [mobileCarouselApi]);
+
+  useEffect(() => {
+    if (!mobileCarouselApi) return;
+    const current = mobileCarouselApi.selectedScrollSnap();
+    if (current !== selectedImageIndex) mobileCarouselApi.scrollTo(selectedImageIndex);
+  }, [mobileCarouselApi, selectedImageIndex]);
+
+  const selectedImage = productImages[clampImageIndex(selectedImageIndex)];
 
   if (isLoading) {
     return (
@@ -52,14 +90,59 @@ const ProductDetail = () => {
       <StoreHeader />
 
       <div className="container mx-auto px-6 py-8">
-        <Link to="/#produtos" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-          <ChevronLeft className="h-4 w-4" />
-          Voltar
-        </Link>
-
         <div className="grid md:grid-cols-2 gap-10 lg:gap-16">
-          <div className="overflow-hidden rounded-sm bg-muted aspect-square">
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+          <div className="flex md:flex-row gap-4 md:items-start">
+            <div className="hidden md:block md:w-[88px]">
+              <div
+                className="flex md:flex-col gap-3 overflow-x-auto md:overflow-x-visible md:overflow-y-auto scrollbar-hide"
+                style={{ touchAction: 'pan-x' }}
+              >
+                {productImages.map((image, index) => {
+                  const isActive = index === selectedImageIndex;
+                  return (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`shrink-0 overflow-hidden rounded-sm border transition-colors ${
+                        isActive ? 'border-primary' : 'border-border hover:border-foreground/30'
+                      }`}
+                      aria-label={`Ver imagem ${index + 1} do produto`}
+                      aria-current={isActive ? 'true' : 'false'}
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.name} miniatura ${index + 1}`}
+                        className="h-20 w-20 object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="hidden md:block overflow-hidden rounded-sm bg-muted aspect-square flex-1">
+              <img src={selectedImage} alt={product.name} className="w-full h-full object-cover" />
+            </div>
+
+            <div className="md:hidden max-w-[420px] mx-auto">
+              <Carousel
+                setApi={setMobileCarouselApi}
+                opts={{ align: 'center', loop: productImages.length > 1 }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-3">
+                  {productImages.map((image, index) => (
+                    <CarouselItem key={`${image}-mobile-${index}`} className="pl-3 basis-[86%]">
+                      <div className="overflow-hidden rounded-sm bg-muted aspect-[2/3]">
+                        <img src={image} alt={`${product.name} foto ${index + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+            </div>
           </div>
 
           <div className="flex flex-col justify-center space-y-6">
@@ -72,6 +155,9 @@ const ProductDetail = () => {
             <button onClick={handleAdd} className="btn-gold px-8 py-3 rounded-sm text-sm uppercase tracking-widest w-fit">
               Adicionar ao carrinho
             </button>
+            {productImages.length > 1 && (
+              <p className="text-xs text-muted-foreground font-body">No celular, deslize lateralmente na foto para navegar pela galeria.</p>
+            )}
           </div>
         </div>
 

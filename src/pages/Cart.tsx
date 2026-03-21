@@ -3,6 +3,7 @@ import { Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { StoreHeader } from '@/components/StoreHeader';
 import { StoreFooter } from '@/components/StoreFooter';
 import { useStore } from '@/lib/store';
+import { getPrimaryProductImage } from '@/lib/product-images';
 
 const Cart = () => {
   const { cart, removeFromCart, updateCartQuantity } = useStore();
@@ -48,7 +49,7 @@ const Cart = () => {
             {cart.map(({ product, quantity }) => (
               <div key={product.id} className="flex gap-4 pb-6 border-b border-border fade-in">
                 <img
-                  src={product.image}
+                  src={getPrimaryProductImage(product.image)}
                   alt={product.name}
                   className="w-24 h-24 object-cover rounded-sm"
                 />

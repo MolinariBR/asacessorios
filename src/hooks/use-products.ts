@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getPrimaryProductImage, parseProductImageList } from '@/lib/product-images';
 
 export interface Product {
   id: string;
@@ -7,9 +8,19 @@ export interface Product {
   description: string;
   price: number;
   image: string;
+  images: string[];
   category: string;
   color: string;
   created_at: string;
+}
+
+export interface ProductInput {
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string;
+  color: string;
 }
 
 export function useProducts() {
@@ -26,7 +37,8 @@ export function useProducts() {
         name: p.name,
         description: p.description,
         price: Number(p.price),
-        image: p.image,
+        image: getPrimaryProductImage(p.image),
+        images: parseProductImageList(p.image),
         category: p.category,
         color: (p as any).color ?? '',
         created_at: p.created_at,
@@ -38,7 +50,7 @@ export function useProducts() {
 export function useAddProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (product: Omit<Product, 'id' | 'created_at'>) => {
+    mutationFn: async (product: ProductInput) => {
       const { error } = await supabase.from('products').insert({
         name: product.name,
         description: product.description,
@@ -56,7 +68,7 @@ export function useAddProduct() {
 export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: Partial<ProductInput> & { id: string }) => {
       const { error } = await supabase.from('products').update(updates).eq('id', id);
       if (error) throw error;
     },
