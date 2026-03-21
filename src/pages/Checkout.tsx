@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowLeft, Truck, Tag, X } from 'lucide-react';
 import { z } from 'zod';
 import { StoreHeader } from '@/components/StoreHeader';
@@ -9,14 +9,33 @@ import { toast } from 'sonner';
 
 const checkoutSchema = z.object({
   name: z.string().trim().min(2, 'Nome é obrigatório').max(100),
-  bairro: z.string().trim().min(2, 'Bairro é obrigatório').max(100),
-  rua: z.string().trim().min(2, 'Rua é obrigatória').max(200),
-  numero: z.string().trim().min(1, 'Número é obrigatório').max(20),
-  cep: z.string().trim().min(5, 'CEP inválido').max(9),
+  bairro: z.string().trim().max(100).optional().or(z.literal('')),
+  rua: z.string().trim().max(200).optional().or(z.literal('')),
+  numero: z.string().trim().max(20).optional().or(z.literal('')),
+  cep: z.string().trim().max(9).optional().or(z.literal('')),
   whatsapp: z.string().trim().min(10, 'WhatsApp inválido').max(15),
-  distancia: z.string().trim().min(1, 'Informe a distância'),
+  distancia: z.string().trim().optional().or(z.literal('')),
+  deliveryMethod: z.enum(['entrega', 'retirada']),
   paymentMethod: z.enum(['pix', 'credito', 'debito', 'parcelado']),
   installments: z.number().optional(),
+}).superRefine((data, ctx) => {
+  if (data.deliveryMethod !== 'entrega') return;
+
+  if (!data.cep || data.cep.length < 8) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cep'], message: 'CEP inválido' });
+  }
+  if (!data.bairro || data.bairro.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bairro'], message: 'Bairro é obrigatório' });
+  }
+  if (!data.rua || data.rua.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['rua'], message: 'Rua é obrigatória' });
+  }
+  if (!data.numero || data.numero.length < 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['numero'], message: 'Número é obrigatório' });
+  }
+  if (!data.distancia || data.distancia.trim().length < 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['distancia'], message: 'Informe a distância' });
+  }
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
@@ -38,13 +57,17 @@ const paymentLabels: Record<string, string> = {
   parcelado: 'Parcelado',
 };
 
+const deliveryLabels: Record<string, string> = {
+  entrega: 'Entrega',
+  retirada: 'Retirada na loja',
+};
+
 const Checkout = () => {
-  const navigate = useNavigate();
   const { cart, clearCart } = useStore();
   const { data: settings } = useStoreSettings();
   const { data: freightZones = [] } = useFreightZones();
   const { data: coupons = [] } = useCoupons();
-  const [form, setForm] = useState<Partial<CheckoutForm>>({ paymentMethod: 'pix', distancia: '' });
+  const [form, setForm] = useState<Partial<CheckoutForm>>({ paymentMethod: 'pix', distancia: '', deliveryMethod: 'entrega' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
@@ -52,9 +75,10 @@ const Checkout = () => {
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const discount = appliedCoupon ? subtotal * (appliedCoupon.discountPercent / 100) : 0;
   const subtotalWithDiscount = subtotal - discount;
+  const isPickup = form.deliveryMethod === 'retirada';
   const distanciaNum = parseFloat(form.distancia || '0') || 0;
   const freightResult = calculateFreightByDistance(distanciaNum, freightZones, settings?.defaultFreight ?? 15);
-  const frete = freightResult.price;
+  const frete = isPickup ? 0 : freightResult.price;
   const total = subtotalWithDiscount + frete;
 
   if (cart.length === 0) {
@@ -91,7 +115,11 @@ const Checkout = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const result = checkoutSchema.safeParse(form);
+    const result = checkoutSchema.safeParse({
+      ...form,
+      whatsapp: (form.whatsapp ?? '').replace(/\D/g, ''),
+      cep: (form.cep ?? '').replace(/\D/g, ''),
+    });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       result.error.issues.forEach((issue) => { fieldErrors[issue.path[0] as string] = issue.message; });
@@ -112,24 +140,36 @@ const Checkout = () => {
       ? `*Cupom:* ${appliedCoupon.code} (-${appliedCoupon.discountPercent}%)\n*Desconto:* -R$ ${discount.toFixed(2).replace('.', ',')}\n`
       : '';
 
+    const deliveryText = data.deliveryMethod === 'retirada'
+      ? `*Recebimento:* ${deliveryLabels[data.deliveryMethod]}\n`
+      : `*Recebimento:* ${deliveryLabels[data.deliveryMethod]}\n` +
+        `*Endereço:*\n${data.rua}, ${data.numero}\n${data.bairro}\nCEP: ${data.cep}\n` +
+        `*Distância:* ${data.distancia} km\n`;
+
+    const freightText = data.deliveryMethod === 'retirada'
+      ? `*Frete:* Retirada na loja\n`
+      : `*Frete (${freightResult.zoneName}):* R$ ${frete.toFixed(2).replace('.', ',')}\n`;
+
     const message = `🛍️ *Novo Pedido - AS Acessórios*\n\n` +
       `*Cliente:* ${data.name}\n*WhatsApp:* ${data.whatsapp}\n\n` +
-      `*Endereço:*\n${data.rua}, ${data.numero}\n${data.bairro}\nCEP: ${data.cep}\n` +
-      `*Distância:* ${data.distancia} km\n\n` +
+      `${deliveryText}\n` +
       `*Produtos:*\n${itemsText}\n\n` +
       `*Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}\n` +
       couponText +
-      `*Frete (${freightResult.zoneName}):* R$ ${frete.toFixed(2).replace('.', ',')}\n` +
+      freightText +
       `*Total:* R$ ${total.toFixed(2).replace('.', ',')}${installmentText}\n\n` +
       `*Pagamento:* ${paymentLabels[data.paymentMethod]}${installmentText}`;
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${(settings?.whatsappNumber ?? '').replace(/\D/g, '')}?text=${encodedMessage}`;
+    const storeWhatsapp = (settings?.whatsappNumber ?? '').replace(/\D/g, '');
+    if (storeWhatsapp.length < 10) {
+      toast.error('WhatsApp da loja não configurado no Admin');
+      return;
+    }
+    const whatsappUrl = `https://wa.me/${storeWhatsapp}?text=${encodedMessage}`;
 
     clearCart();
-    toast.success('Pedido enviado! Redirecionando para o WhatsApp...');
-    window.open(whatsappUrl, '_blank');
-    navigate('/');
+    window.location.href = whatsappUrl;
   };
 
   const inputClass = "w-full bg-background border border-border rounded-sm px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors";
@@ -162,45 +202,76 @@ const Checkout = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="font-display text-xl font-medium text-foreground">Endereço de Entrega</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>CEP</label>
-                <input className={inputClass} placeholder="00000-000" value={form.cep || ''} onChange={(e) => updateField('cep', e.target.value)} />
-                {errors.cep && <p className="text-xs text-destructive mt-1">{errors.cep}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Bairro</label>
-                <input className={inputClass} placeholder="Bairro" value={form.bairro || ''} onChange={(e) => updateField('bairro', e.target.value)} />
-                {errors.bairro && <p className="text-xs text-destructive mt-1">{errors.bairro}</p>}
-              </div>
+            <h3 className="font-display text-xl font-medium text-foreground">Forma de Recebimento</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {(['entrega', 'retirada'] as const).map((method) => (
+                <button
+                  type="button"
+                  key={method}
+                  onClick={() => updateField('deliveryMethod', method)}
+                  className={`px-4 py-3 border rounded-sm text-xs uppercase tracking-widest font-body transition-colors ${
+                    form.deliveryMethod === method
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground hover:border-foreground'
+                  }`}
+                >
+                  {deliveryLabels[method]}
+                </button>
+              ))}
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <label className={labelClass}>Rua</label>
-                <input className={inputClass} placeholder="Rua" value={form.rua || ''} onChange={(e) => updateField('rua', e.target.value)} />
-                {errors.rua && <p className="text-xs text-destructive mt-1">{errors.rua}</p>}
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="font-display text-xl font-medium text-foreground">
+              {isPickup ? 'Retirada na Loja' : 'Endereço de Entrega'}
+            </h3>
+
+            {isPickup ? (
+              <div className="bg-muted/50 border border-border rounded-sm px-4 py-3 text-sm font-body text-muted-foreground">
+                Você escolheu retirada na loja. Endereço e distância não são necessários.
               </div>
-              <div>
-                <label className={labelClass}>Número</label>
-                <input className={inputClass} placeholder="Nº" value={form.numero || ''} onChange={(e) => updateField('numero', e.target.value)} />
-                {errors.numero && <p className="text-xs text-destructive mt-1">{errors.numero}</p>}
-              </div>
-            </div>
-            <div>
-              <label className={labelClass}>Distância aproximada (km)</label>
-              <input className={inputClass} type="number" step="0.1" min="0" placeholder="Ex: 8" value={form.distancia || ''} onChange={(e) => updateField('distancia', e.target.value)} />
-              {errors.distancia && <p className="text-xs text-destructive mt-1">{errors.distancia}</p>}
-              {distanciaNum > 0 && frete > 0 && (
-                <div className="mt-2 flex items-center gap-2 text-sm font-body bg-muted/50 border border-border rounded-sm px-3 py-2">
-                  <Truck className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-foreground">
-                    Frete: <strong>R$ {frete.toFixed(2).replace('.', ',')}</strong>
-                    <span className="text-muted-foreground ml-1 text-xs">({freightResult.zoneName})</span>
-                  </span>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>CEP</label>
+                    <input className={inputClass} placeholder="00000-000" value={form.cep || ''} onChange={(e) => updateField('cep', e.target.value)} />
+                    {errors.cep && <p className="text-xs text-destructive mt-1">{errors.cep}</p>}
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bairro</label>
+                    <input className={inputClass} placeholder="Bairro" value={form.bairro || ''} onChange={(e) => updateField('bairro', e.target.value)} />
+                    {errors.bairro && <p className="text-xs text-destructive mt-1">{errors.bairro}</p>}
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <label className={labelClass}>Rua</label>
+                    <input className={inputClass} placeholder="Rua" value={form.rua || ''} onChange={(e) => updateField('rua', e.target.value)} />
+                    {errors.rua && <p className="text-xs text-destructive mt-1">{errors.rua}</p>}
+                  </div>
+                  <div>
+                    <label className={labelClass}>Número</label>
+                    <input className={inputClass} placeholder="Nº" value={form.numero || ''} onChange={(e) => updateField('numero', e.target.value)} />
+                    {errors.numero && <p className="text-xs text-destructive mt-1">{errors.numero}</p>}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Distância aproximada (km)</label>
+                  <input className={inputClass} type="number" step="0.1" min="0" placeholder="Ex: 8" value={form.distancia || ''} onChange={(e) => updateField('distancia', e.target.value)} />
+                  {errors.distancia && <p className="text-xs text-destructive mt-1">{errors.distancia}</p>}
+                  {distanciaNum > 0 && frete > 0 && (
+                    <div className="mt-2 flex items-center gap-2 text-sm font-body bg-muted/50 border border-border rounded-sm px-3 py-2">
+                      <Truck className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-foreground">
+                        Frete: <strong>R$ {frete.toFixed(2).replace('.', ',')}</strong>
+                        <span className="text-muted-foreground ml-1 text-xs">({freightResult.zoneName})</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -269,7 +340,9 @@ const Checkout = () => {
             )}
             <div className="border-t border-border pt-3 flex justify-between text-sm font-body">
               <span className="text-muted-foreground">Frete</span>
-              <span className="text-foreground">{frete > 0 ? `R$ ${frete.toFixed(2).replace('.', ',')}` : 'Informe a distância'}</span>
+              <span className="text-foreground">
+                {isPickup ? 'Retirada na loja' : frete > 0 ? `R$ ${frete.toFixed(2).replace('.', ',')}` : 'Informe a distância'}
+              </span>
             </div>
             <div className="border-t border-border pt-3 flex justify-between font-display text-xl font-semibold">
               <span>Total</span>
