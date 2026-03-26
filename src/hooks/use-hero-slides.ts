@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { withCacheVersion } from '@/lib/image-cache';
 
 export interface HeroSlide {
   id: string;
@@ -26,7 +27,7 @@ export function useHeroSlides() {
       return (data ?? []).map((s) => ({
         id: s.id,
         sortOrder: s.sort_order,
-        image: s.image,
+        image: withCacheVersion(s.image),
         subtitle: s.subtitle,
         title: s.title,
         description: s.description,
@@ -50,7 +51,7 @@ export function useAllHeroSlides() {
       return (data ?? []).map((s) => ({
         id: s.id,
         sortOrder: s.sort_order,
-        image: s.image,
+        image: withCacheVersion(s.image),
         subtitle: s.subtitle,
         title: s.title,
         description: s.description,

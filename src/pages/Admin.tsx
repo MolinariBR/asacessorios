@@ -3,6 +3,7 @@ import { Package, Settings, Plus, Pencil, Trash2, Menu, X, Truck, Upload, Tag, I
 import { supabase } from '@/integrations/supabase/client';
 import { useProducts, useAddProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/use-products';
 import { MAX_PRODUCT_IMAGES, parseProductImageList, serializeProductImageList } from '@/lib/product-images';
+import { withUploadCacheVersion } from '@/lib/image-cache';
 import {
   useStoreSettings, useUpdateStoreSettings,
   useFreightZones, useSaveFreightZones,
@@ -111,9 +112,10 @@ const Admin = () => {
       const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+      const versionedPublicUrl = withUploadCacheVersion(urlData.publicUrl);
       setProductImages((prev) => {
         const next = [...prev];
-        next[slotIndex] = urlData.publicUrl;
+        next[slotIndex] = versionedPublicUrl;
         return next;
       });
       toast.success(slotIndex === 0 ? 'Imagem principal enviada com sucesso!' : `Imagem ${slotIndex + 1} enviada com sucesso!`);
@@ -614,13 +616,13 @@ const Admin = () => {
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            const ext = file.name.split('.').pop();
+                            const ext = file.name.split('.').pop() || 'jpg';
                             const path = `hero-${Date.now()}.${ext}`;
                             const { error } = await supabase.storage.from('hero-images').upload(path, file, { upsert: true });
                             if (error) { toast.error('Erro ao enviar imagem'); return; }
                             const { data: urlData } = supabase.storage.from('hero-images').getPublicUrl(path);
                             try {
-                              await updateSlideMut.mutateAsync({ ...slide, image: urlData.publicUrl });
+                              await updateSlideMut.mutateAsync({ ...slide, image: withUploadCacheVersion(urlData.publicUrl) });
                               toast.success('Imagem enviada!');
                             } catch { toast.error('Erro ao salvar'); }
                           }}

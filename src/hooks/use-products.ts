@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getPrimaryProductImage, parseProductImageList } from '@/lib/product-images';
+import { withCacheVersion } from '@/lib/image-cache';
 
 export interface Product {
   id: string;
@@ -33,12 +34,12 @@ export function useProducts() {
         .order('created_at', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((p) => ({
+        images: parseProductImageList(p.image).map((image) => withCacheVersion(image)),
         id: p.id,
         name: p.name,
         description: p.description,
         price: Number(p.price),
-        image: getPrimaryProductImage(p.image),
-        images: parseProductImageList(p.image),
+        image: withCacheVersion(getPrimaryProductImage(p.image)),
         category: p.category,
         color: (p as any).color ?? '',
         created_at: p.created_at,
