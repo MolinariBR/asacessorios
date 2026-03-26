@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import heroBanner from '@/assets/hero-banner.jpg';
 import { useHeroSlides } from '@/hooks/use-hero-slides';
 
 export function HeroSection() {
-  const { data: slides = [] } = useHeroSlides();
+  const { data: slides = [], isFetched } = useHeroSlides();
   const [current, setCurrent] = useState(0);
 
-  const activeSlides = slides.length > 0 ? slides : [{
+  const hasSlides = slides.length > 0;
+  const activeSlides = hasSlides ? slides : [{
     id: 'default',
     sortOrder: 0,
     image: '',
@@ -36,18 +36,28 @@ export function HeroSection() {
 
   const slide = activeSlides[current];
 
+  if (!isFetched && !hasSlides) {
+    return (
+      <section className="relative h-[70vh] min-h-[500px] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-muted via-background to-muted/60" />
+      </section>
+    );
+  }
+
   return (
     <section className="relative h-[70vh] min-h-[500px] overflow-hidden">
       {/* Slides */}
       {activeSlides.map((s, i) => (
-        <img
-          key={s.id}
-          src={s.image || heroBanner}
-          alt={s.title}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-            i === current ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
+        s.image ? (
+          <img
+            key={s.id}
+            src={s.image}
+            alt={s.title}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+              i === current ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ) : null
       ))}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />

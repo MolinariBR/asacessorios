@@ -24,6 +24,21 @@ export interface ProductInput {
   color: string;
 }
 
+function mapProductRow(p: any): Product {
+  const images = parseProductImageList(p.image).map((image) => withCacheVersion(image));
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price: Number(p.price),
+    image: withCacheVersion(getPrimaryProductImage(p.image)),
+    images,
+    category: p.category,
+    color: (p as any).color ?? '',
+    created_at: p.created_at,
+  };
+}
+
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
@@ -33,17 +48,7 @@ export function useProducts() {
         .select('*')
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data ?? []).map((p) => ({
-        images: parseProductImageList(p.image).map((image) => withCacheVersion(image)),
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price: Number(p.price),
-        image: withCacheVersion(getPrimaryProductImage(p.image)),
-        category: p.category,
-        color: (p as any).color ?? '',
-        created_at: p.created_at,
-      }));
+      return (data ?? []).map(mapProductRow);
     },
   });
 }
@@ -52,17 +57,22 @@ export function useAddProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (product: ProductInput) => {
-      const { error } = await supabase.from('products').insert({
+      const { data, error } = await supabase.from('products').insert({
         name: product.name,
         description: product.description,
         price: product.price,
         image: product.image,
         category: product.category,
         color: product.color,
-      } as any);
+      } as any).select('*').single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onSuccess: (createdRow) => {
+      const created = mapProductRow(createdRow);
+      qc.setQueryData<Product[]>(['products'], (current = []) => [...current, created]);
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
   });
 }
 
@@ -70,10 +80,17 @@ export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ProductInput> & { id: string }) => {
-      const { error } = await supabase.from('products').update(updates).eq('id', id);
+      const { data, error } = await supabase.from('products').update(updates).eq('id', id).select('*').single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onSuccess: (updatedRow) => {
+      const updated = mapProductRow(updatedRow);
+      qc.setQueryData<Product[]>(['products'], (current = []) =>
+        current.map((product) => (product.id === updated.id ? updated : product))
+      );
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
   });
 }
 
@@ -84,6 +101,11 @@ export function useDeleteProduct() {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+    onSuccess: (_, deletedId) => {
+      qc.setQueryData<Product[]>(['products'], (current = []) =>
+        current.filter((product) => product.id !== deletedId)
+      );
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
   });
 }
